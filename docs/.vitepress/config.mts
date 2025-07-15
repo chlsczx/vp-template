@@ -38,7 +38,7 @@ export default defineConfig({
       { text: "Examples", link: "/markdown-examples" },
     ],
 
-    sidebar: logAndRt(await createSidebarConfig(["/", "/a"])),
+    sidebar: logAndRt(await createSidebarConfig(["/", "/api", "/api-aaa"])),
 
     socialLinks: [
       { icon: "github", link: "https://github.com/vuejs/vitepress" },
