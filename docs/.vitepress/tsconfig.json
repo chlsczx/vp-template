@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "types": [
+      "node"
+    ],
+    "esModuleInterop": true,
+    "sourceMap": true,
+    "strict": true
+  },
+}
