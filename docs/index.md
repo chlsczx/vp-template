@@ -3,17 +3,16 @@
 layout: home
 
 hero:
-  name: "vp-templates"
-  text: "Show how to work with perfect vp config."
+  name: "Vitepress-Templates"
+  text: "OOTB and Fantastic Vitepress Config."
   tagline: My great project tagline
   actions:
     - theme: brand
-      text: Markdown Examples
-      link: /markdown-examples
+      text: Get Started
+      link: /intro
     - theme: alt
       text: API Examples
       link: /api-examples
-
 features:
   - title: Feature A
     details: Lorem ipsum dolor sit amet, consectetur adipiscing elit

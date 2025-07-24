@@ -15,7 +15,7 @@ export const logJSON = <T>(obj: T, saveFile?: boolean, filename?: string) => {
   }
 };
 
-export const logAndRt = <T>(obj: T): T => {
+export const ljr = <T>(obj: T): T => {
   logJSON(obj);
   return obj;
 };

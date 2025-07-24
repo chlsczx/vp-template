@@ -3,10 +3,14 @@ import * as path from "path";
 import * as readline from "readline";
 import yaml from "js-yaml";
 import { getNested } from "./stringUtils";
+import { MdConfig } from "../types";
 
-export async function decideTitleInContent(
+export async function decideConfigInMdContent(
   filePath: string
-): Promise<string | undefined> {
+): Promise<MdConfig> {
+  const mdConfig: MdConfig = {
+    priority: 999,
+  };
   const fileStream = fs.createReadStream(filePath);
 
   const rl = readline.createInterface({
@@ -18,7 +22,13 @@ export async function decideTitleInContent(
   let frontMatterLines: string[] = [];
 
   let i = 0;
-  let frontMatterData;
+  let frontMatterData:
+    | {
+        priority?: undefined | number;
+        redirect?: string | undefined;
+        title?: string | undefined;
+      }
+    | undefined;
   let str: string;
   for await (const line of rl) {
     i++;
@@ -32,11 +42,11 @@ export async function decideTitleInContent(
       } else if (inFrontMatter) {
         try {
           const data = yaml.load(frontMatterLines.join("\n"));
+
           if (typeof data === "object" && data && "title" in data) {
-            rl.close();
-            return (data as any).title;
+            mdConfig.title = data.title as string;
           }
-          frontMatterData = data;
+          frontMatterData = data as object;
         } catch (e) {}
         inFrontMatter = false;
         continue;
@@ -66,12 +76,12 @@ export async function decideTitleInContent(
         }
       }
 
-      return str;
+      mdConfig.title = str;
     }
-    // 如果碰到 ## 或更小的标题（不再尝试读取）
+    // 如果碰到 ## 或更小的标题（不再尝试读取）此时 priority 和 title 必定已经读取完毕
     if (trimmed.startsWith("##")) {
       rl.close();
-      return undefined;
+      break;
     }
 
     // Check for <h1>{{ $frontmatter.xxx }}</h1>
@@ -91,10 +101,13 @@ export async function decideTitleInContent(
           str = str.replace(match, getNested(frontMatterData, key));
         }
       }
-      return str;
+      mdConfig.title = str;
     }
   }
 
   rl.close();
-  return undefined;
+
+  mdConfig.priority = (frontMatterData?.priority as number | undefined) ?? 999;
+
+  return mdConfig;
 }

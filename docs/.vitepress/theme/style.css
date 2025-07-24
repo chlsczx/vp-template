@@ -137,3 +137,9 @@
   --docsearch-primary-color: var(--vp-c-brand-1) !important;
 }
 
+/* .vitepress/theme/my-fonts.css */
+:root {
+  /* --vp-font-family-base: "LXGW WenKai", "Microsoft YaHei"; */
+  --vp-font-family-mono: "JetBrains Mono", "LXGW WenKai Mono", Consolas,
+    "FiraCode Nerd Font";
+}
