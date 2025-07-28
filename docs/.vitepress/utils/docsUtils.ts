@@ -84,6 +84,14 @@ const sortItem = (a: string | number, b: string | number) => {
   return strA > strB ? 1 : -1;
 };
 
+/**
+ * Support parsing arbitrary relative paths into objects, including both .md files
+ *  and recursive directories. Automatically handle _sp_intro special paths by mapping
+ *  index.md inside _sp_intro to the root of the corresponding directory.
+ * @param relativeDirPath
+ * @param config
+ * @returns
+ */
 async function getSidebarItemsTree(
   relativeDirPath: string,
   config?: {
@@ -125,12 +133,21 @@ async function getSidebarItemsTree(
     const subFiles = fs.readdirSync(fullPath);
 
     const hasIndex: boolean = !subFiles.every((file) => file !== "index.md");
-    const clickable = hasIndex;
+    const hasIntro = !subFiles.every(
+      (file) =>
+        !(
+          file === "_sp_intro" &&
+          fs.statSync(fullPath + "\\" + file).isDirectory()
+        )
+    );
+    const clickable = hasIndex || hasIntro;
     let mdConfig: MdConfig = {
       priority: 999,
     };
-    if (hasIndex) {
-      mdConfig = await decideConfigInMdContent(fullPath + "/index.md");
+    if (clickable) {
+      mdConfig = await decideConfigInMdContent(
+        `${fullPath}${hasIntro ? "/_sp_intro" : ""}/index.md`
+      );
     }
     const title: string = hasIndex ? mdConfig.title ?? rootName : rootName;
 
@@ -138,7 +155,7 @@ async function getSidebarItemsTree(
       text: (clickable ? "" : `${NO_INDEX_DIR_MARK} `) + title,
       link: clickable
         ? removeExtensionSuffix(
-            `${BASE_ROOT ? `/${BASE_ROOT}` : ``}/${relativeDirPath}`
+            `${BASE_ROOT ? `/${BASE_ROOT}` : ``}/${relativeDirPath}/`
           )
         : undefined,
       [SORT_BASE]: mdConfig.priority,
@@ -161,18 +178,6 @@ async function getSidebarItemsTree(
         )
       )
         .filter((i) => i !== undefined)
-        // .flatMap((i) => {
-        //   if (!i.link) return i;
-        //   if (config.releaseSp && i.link.endsWith("/_sp_intro") && i.items) {
-        //     const items = i.items;
-        //     return [i, ...i.items] as Array<
-        //       DefaultTheme.SidebarItem & {
-        //         ".sort_base": number;
-        //       }
-        //     >;
-        //   }
-        //   return i;
-        // })
         .sort((a, b) => {
           if (a.link?.endsWith("/_sp_intro")) {
             a.collapsed = false;
@@ -182,9 +187,7 @@ async function getSidebarItemsTree(
             b.collapsed = false;
             return 1;
           }
-          // 文件排前面
           if (!!a.items !== !!b.items) return a.items ? 1 : -1;
-          // 根据 SORT_BASE
           return sortItem(a[SORT_BASE], b[SORT_BASE]);
         })
         .map((i) => {
