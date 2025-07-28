@@ -2,9 +2,9 @@ import type { DefaultTheme } from "vitepress";
 import { decideConfigInMdContent } from "./fileUtils";
 import * as fs from "fs";
 import * as path from "path";
-import { title } from "process";
 import { BASE_ROOT, NO_INDEX_DIR_MARK, SORT_BASE } from "../constant";
 import { MdConfig, SidebarItem } from "../types";
+import { ljr } from "./logUtils";
 
 const getPriority = (sidebarItem: DefaultTheme.SidebarItem): number => {
   if (SORT_BASE in sidebarItem) {
@@ -73,7 +73,7 @@ function padNumber(numStr: string, length: number) {
   return numStr.padStart(length, "0");
 }
 
-const sortName = (a: string | number, b: string | number) => {
+const sortItem = (a: string | number, b: string | number) => {
   let strA = "" + a;
   let strB = "" + b;
   if (typeof a === "number" && typeof b === "number")
@@ -85,8 +85,15 @@ const sortName = (a: string | number, b: string | number) => {
 };
 
 async function getSidebarItemsTree(
-  relativeDirPath: string
+  relativeDirPath: string,
+  config?: {
+    releaseSp?: boolean;
+  }
 ): Promise<(DefaultTheme.SidebarItem & { [SORT_BASE]: number }) | undefined> {
+  config = {
+    ...config,
+    releaseSp: config?.releaseSp ?? true,
+  };
   const fullPath = toDocsAbsoultePath(relativeDirPath);
   const fileState = fs.statSync(fullPath);
   const rootName: string = relativeDirPath
@@ -134,8 +141,8 @@ async function getSidebarItemsTree(
             `${BASE_ROOT ? `/${BASE_ROOT}` : ``}/${relativeDirPath}`
           )
         : undefined,
-      collapsed: true,
       [SORT_BASE]: mdConfig.priority,
+      collapsed: true,
       items: (
         await Promise.all(
           subFiles
@@ -148,14 +155,43 @@ async function getSidebarItemsTree(
             })
             .map(async (f) => {
               const rp = `${relativeDirPath ? `${relativeDirPath}/` : ""}` + f;
-              return await getSidebarItemsTree(rp);
+              const result = await getSidebarItemsTree(rp);
+              return result;
             })
         )
       )
         .filter((i) => i !== undefined)
+        // .flatMap((i) => {
+        //   if (!i.link) return i;
+        //   if (config.releaseSp && i.link.endsWith("/_sp_intro") && i.items) {
+        //     const items = i.items;
+        //     return [i, ...i.items] as Array<
+        //       DefaultTheme.SidebarItem & {
+        //         ".sort_base": number;
+        //       }
+        //     >;
+        //   }
+        //   return i;
+        // })
         .sort((a, b) => {
+          if (a.link?.endsWith("/_sp_intro")) {
+            a.collapsed = false;
+            return -1;
+          }
+          if (b.link?.endsWith("/_sp_intro")) {
+            b.collapsed = false;
+            return 1;
+          }
+          // 文件排前面
           if (!!a.items !== !!b.items) return a.items ? 1 : -1;
-          return sortName(a[SORT_BASE], b[SORT_BASE]);
+          // 根据 SORT_BASE
+          return sortItem(a[SORT_BASE], b[SORT_BASE]);
+        })
+        .map((i) => {
+          if (i.link?.endsWith("/_sp_intro"))
+            i.link = i.link?.replace("/_sp_intro", "/");
+          else i.link = i.link?.replace("/_sp_intro", "");
+          return i;
         }),
     };
   }
@@ -170,7 +206,8 @@ export async function getSidebar(
 
   check(root, baseLang);
 
-  const sidebarItems = (await getSidebarItemsTree(root))?.items;
+  const rootSidebar = await getSidebarItemsTree(root, { releaseSp: false });
+  const sidebarItems = rootSidebar?.items;
   if (!sidebarItems) {
     throw new Error("Unexpected fault, check root!");
   }

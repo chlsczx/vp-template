@@ -1,8 +1,14 @@
+export type Enabled = boolean | 0 | 1 | 2;
+
+export type NavOverride = string;
+
 export type DocsConfigValue =
   | string
   | [string]
-  | [string, boolean]
-  | { links: string; show: boolean };
+  | [string, Enabled]
+  | [string, NavOverride]
+  | [string, Enabled, NavOverride]
+  | { links: string; show: Enabled };
 
 export type DocsConfig = Record<string, DocsConfigValue>;
 

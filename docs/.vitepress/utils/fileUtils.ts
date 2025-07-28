@@ -5,6 +5,9 @@ import yaml from "js-yaml";
 import { getNested } from "./stringUtils";
 import { MdConfig } from "../types";
 
+/**
+ * 获取 优先级、标题
+ */
 export async function decideConfigInMdContent(
   filePath: string
 ): Promise<MdConfig> {
@@ -43,10 +46,12 @@ export async function decideConfigInMdContent(
         try {
           const data = yaml.load(frontMatterLines.join("\n"));
 
+          frontMatterData = data as object;
+
           if (typeof data === "object" && data && "title" in data) {
             mdConfig.title = data.title as string;
+            break;
           }
-          frontMatterData = data as object;
         } catch (e) {}
         inFrontMatter = false;
         continue;
@@ -77,6 +82,8 @@ export async function decideConfigInMdContent(
       }
 
       mdConfig.title = str;
+
+      break;
     }
     // 如果碰到 ## 或更小的标题（不再尝试读取）此时 priority 和 title 必定已经读取完毕
     if (trimmed.startsWith("##")) {
@@ -102,6 +109,7 @@ export async function decideConfigInMdContent(
         }
       }
       mdConfig.title = str;
+      break;
     }
   }
 

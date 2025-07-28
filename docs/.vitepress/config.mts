@@ -4,30 +4,38 @@ import { withMermaid } from "vitepress-plugin-mermaid";
 import path from "path";
 import { CHINESE_SEARCH_CONFIG, USE_MERMAID } from "./constant";
 import { ljr } from "./utils/logUtils";
-import { DocsConfig, DocsConfigValue } from "./types";
+import { DocsConfig, DocsConfigValue, Enabled } from "./types";
 import { statSync } from "fs";
 import { bench } from "./utils/timeUtils";
+import { docsConfig } from "../config";
 
-const docsConfig: DocsConfig = {
-  all: "/",
-  example: ["/vp-example/"],
-};
-
-const existDocDir = (relativePath: string): boolean => {
+const existDocDir = (
+  relativePath: string,
+  config: { acceptFile?: boolean }
+): boolean => {
+  const { acceptFile = false } = config;
   const fullPath = toDocsAbsoultePath(relativePath);
   try {
-    if (statSync(fullPath).isFile()) return false;
+    if (statSync(fullPath).isFile()) {
+      return acceptFile;
+    }
   } catch (e) {
     return false;
   }
   return true;
 };
 
-const checkIfExistDocDir = (relativePath: string): boolean => {
+const checkIfExistDocDir = (
+  relativePath: string,
+  config?: { acceptFile?: boolean }
+): boolean => {
+  const { acceptFile } = config ?? {
+    acceptFile: false,
+  };
   if (relativePath === "/") return true;
   relativePath = relativePath.replace(/^\//, "").replace(/\/$/, "");
 
-  if (!existDocDir(relativePath)) {
+  if (!existDocDir(relativePath, { acceptFile })) {
     console.error(
       `Link "${relativePath}" doesn't exist, ignored, please fix the config.`
     );
@@ -41,22 +49,40 @@ const constructNav = (text: string, link: string) => ({
   link,
 });
 
-const getLink = (dcv: DocsConfigValue): string => {
+const getLink = (dcv: DocsConfigValue, isNav?: boolean): string => {
+  const flags = {
+    isNav: isNav ?? false,
+  };
   if (typeof dcv === "string") return dcv;
   if (typeof dcv === "object") {
-    if (Array.isArray(dcv)) return dcv[0];
+    if (Array.isArray(dcv)) {
+      if (flags.isNav && dcv.length === 3 && dcv[2]) {
+        return dcv[2];
+      }
+      return dcv[0];
+    }
     return dcv.links;
   }
   throw new Error("never");
+};
+
+const isEnabled = (enabled: Enabled): boolean => {
+  if (typeof enabled === "number") {
+    return enabled === 1;
+  }
+  return enabled;
 };
 
 const isShown = (docsConfigValue: DocsConfigValue): boolean => {
   if (typeof docsConfigValue === "string") return false;
   if (typeof docsConfigValue === "object") {
     if (Array.isArray(docsConfigValue)) {
-      return docsConfigValue[1] ?? true;
+      return docsConfigValue[1] !== undefined &&
+        typeof docsConfigValue[1] !== "string"
+        ? isEnabled(docsConfigValue[1])
+        : true;
     }
-    return docsConfigValue.show;
+    return isEnabled(docsConfigValue.show);
   }
   throw new Error("never");
 };
@@ -72,9 +98,12 @@ const createSidebarFromDocsConfig = (docsConfig: DocsConfig) => {
 
 const createNavFromDocsConfig = (docsConfig: DocsConfig) => {
   return Object.keys(docsConfig)
-    .filter((k) => checkIfExistDocDir(getLink(docsConfig[k])))
+    .map((k) => {
+      checkIfExistDocDir(getLink(docsConfig[k], true), { acceptFile: true });
+      return k;
+    })
     .filter((k) => isShown(docsConfig[k]))
-    .map((k) => constructNav(k, getLink(docsConfig[k])));
+    .map((k) => constructNav(k, getLink(docsConfig[k], true)));
 };
 
 const customConfig: (
@@ -102,6 +131,9 @@ export default await bench("config", async () => {
         level: [2, 4],
       },
       search: CHINESE_SEARCH_CONFIG,
+    },
+    rewrites(id) {
+      return id.replace(/^(.*)\/_sp_intro\//, "$1/");
     },
   } satisfies UserConfig<DefaultTheme.Config>);
 });
